@@ -1,8 +1,12 @@
 import asyncio
+from typing import List, Callable, Awaitable, Any
+
 import types
 
+from channels.types import MessageType
 
-def name_that_thing(thing):
+
+def name_that_thing(thing: Any) -> str:
     """
     Returns either the function/class path or just the object's repr
     """
@@ -27,7 +31,8 @@ def name_that_thing(thing):
     return repr(thing)
 
 
-async def await_many_dispatch(consumer_callables, dispatch):
+async def await_many_dispatch(consumer_callables: List[Callable[[], Awaitable[MessageType]]],
+                              dispatch: Callable[[MessageType], Awaitable[None]]):
     """
     Given a set of consumer callables, awaits on them all and passes results
     from them to the dispatch awaitable as they come in.
@@ -36,7 +41,7 @@ async def await_many_dispatch(consumer_callables, dispatch):
     tasks = [
         asyncio.ensure_future(consumer_callable())
         for consumer_callable in consumer_callables
-    ]
+    ]  # type: List[asyncio.Future]
     try:
         while True:
             # Wait for any of them to complete
@@ -44,7 +49,7 @@ async def await_many_dispatch(consumer_callables, dispatch):
             # Find the completed one(s), yield results, and replace them
             for i, task in enumerate(tasks):
                 if task.done():
-                    result = task.result()
+                    result = task.result()  # type: MessageType
                     await dispatch(result)
                     tasks[i] = asyncio.ensure_future(consumer_callables[i]())
     finally:

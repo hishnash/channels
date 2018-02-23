@@ -1,7 +1,9 @@
 import json
+from typing import Iterable, Optional, NoReturn, Dict, Any
 
 from asgiref.sync import async_to_sync
 
+from channels.types import MessageType, JsonMappable
 from ..consumer import AsyncConsumer, SyncConsumer
 from ..exceptions import AcceptConnection, DenyConnection, InvalidChannelLayerError, StopConsumer
 
@@ -11,9 +13,9 @@ class WebsocketConsumer(SyncConsumer):
     Base WebSocket consumer. Provides a general encapsulation for the
     WebSocket handling model that other applications can build on.
     """
-    groups = []
+    groups = []  # type: Iterable[str]
 
-    def websocket_connect(self, message):
+    def websocket_connect(self, message: MessageType):
         """
         Called when a WebSocket connection is opened.
         """
@@ -38,7 +40,7 @@ class WebsocketConsumer(SyncConsumer):
         """
         super().send({"type": "websocket.accept"})
 
-    def websocket_receive(self, message):
+    def websocket_receive(self, message: MessageType):
         """
         Called when a WebSocket frame is received. Decodes it and passes it
         to receive().
@@ -48,13 +50,13 @@ class WebsocketConsumer(SyncConsumer):
         else:
             self.receive(bytes_data=message["bytes"])
 
-    def receive(self, text_data=None, bytes_data=None):
+    def receive(self, text_data: Optional[str]=None, bytes_data: Optional[bytes]=None):
         """
         Called with a decoded WebSocket frame.
         """
         pass
 
-    def send(self, text_data=None, bytes_data=None, close=False):
+    def send(self, text_data: Optional[str]=None, bytes_data: Optional[bytes]=None, close=False):  # type: ignore
         """
         Sends a reply back down the WebSocket
         """
@@ -71,7 +73,7 @@ class WebsocketConsumer(SyncConsumer):
         if close:
             self.close(close)
 
-    def close(self, code=None):
+    def close(self, code: Optional[int]=None):
         """
         Closes the WebSocket from the server end
         """
@@ -84,7 +86,7 @@ class WebsocketConsumer(SyncConsumer):
                 {"type": "websocket.close"}
             )
 
-    def websocket_disconnect(self, message):
+    def websocket_disconnect(self, message: MessageType) -> NoReturn:
         """
         Called when a WebSocket connection is closed. Base level so you don't
         need to call super() all the time.
@@ -97,7 +99,7 @@ class WebsocketConsumer(SyncConsumer):
         self.disconnect(message["code"])
         raise StopConsumer()
 
-    def disconnect(self, code):
+    def disconnect(self, code: Optional[int]):
         """
         Called when a WebSocket connection is closed.
         """
@@ -111,19 +113,19 @@ class JsonWebsocketConsumer(WebsocketConsumer):
     error on binary data.
     """
 
-    def receive(self, text_data=None, bytes_data=None, **kwargs):
+    def receive(self, text_data: Optional[str]=None, bytes_data: Optional[bytes]=None, **kwargs):
         if text_data:
             self.receive_json(self.decode_json(text_data), **kwargs)
         else:
             raise ValueError("No text section for incoming WebSocket frame!")
 
-    def receive_json(self, content, **kwargs):
+    def receive_json(self, content: JsonMappable, **kwargs):
         """
         Called with decoded JSON content.
         """
         pass
 
-    def send_json(self, content, close=False):
+    def send_json(self, content: JsonMappable, close=False):
         """
         Encode the given content as JSON and send it to the client.
         """
@@ -133,11 +135,11 @@ class JsonWebsocketConsumer(WebsocketConsumer):
         )
 
     @classmethod
-    def decode_json(cls, text_data):
+    def decode_json(cls, text_data: str) -> JsonMappable:
         return json.loads(text_data)
 
     @classmethod
-    def encode_json(cls, content):
+    def encode_json(cls, content: JsonMappable) -> str:
         return json.dumps(content)
 
 
@@ -146,7 +148,7 @@ class AsyncWebsocketConsumer(AsyncConsumer):
     Base WebSocket consumer, async version. Provides a general encapsulation
     for the WebSocket handling model that other applications can build on.
     """
-    groups = []
+    groups = []  # type: Iterable[str]
 
     async def websocket_connect(self, message):
         """

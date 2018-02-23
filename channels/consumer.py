@@ -1,14 +1,17 @@
+from typing import Callable, Awaitable, NoReturn
+
 import functools
 
 from asgiref.sync import async_to_sync
 
+from channels.types import ScopeType, MessageType
 from .db import database_sync_to_async
 from .exceptions import StopConsumer
 from .layers import get_channel_layer
 from .utils import await_many_dispatch
 
 
-def get_handler_name(message):
+def get_handler_name(message: MessageType) -> str:
     """
     Looks at a message, checks it has a sensible type, and returns the
     handler name for that type.
@@ -31,17 +34,19 @@ class AsyncConsumer:
 
     _sync = False
 
-    def __init__(self, scope):
+    def __init__(self, scope: ScopeType) -> None:
         self.scope = scope
 
-    async def __call__(self, receive, send):
+    async def __call__(self,
+                       receive: Callable[[], Awaitable[MessageType]],
+                       send: Callable[[MessageType], Awaitable[None]]):
         """
         Dispatches incoming messages to type-based handlers asynchronously.
         """
         # Initalize channel layer
         self.channel_layer = get_channel_layer()
         if self.channel_layer is not None:
-            self.channel_name = await self.channel_layer.new_channel()
+            self.channel_name = await self.channel_layer.new_channel()  # type: str
             self.channel_receive = functools.partial(self.channel_layer.receive, self.channel_name)
         # Store send function
         if self._sync:
@@ -58,7 +63,7 @@ class AsyncConsumer:
             # Exit cleanly
             pass
 
-    async def dispatch(self, message):
+    async def dispatch(self, message: MessageType) -> None:
         """
         Works out what to do with a message.
         """
@@ -68,7 +73,7 @@ class AsyncConsumer:
         else:
             raise ValueError("No handler for message type %s" % message["type"])
 
-    async def send(self, message):
+    async def send(self, message: MessageType):
         """
         Overrideable/callable-by-subclasses send method.
         """
@@ -89,7 +94,7 @@ class SyncConsumer(AsyncConsumer):
     _sync = True
 
     @database_sync_to_async
-    def dispatch(self, message):
+    def dispatch(self, message: MessageType) -> None:  # type: ignore
         """
         Dispatches incoming messages to type-based handlers asynchronously.
         """
@@ -100,7 +105,7 @@ class SyncConsumer(AsyncConsumer):
         else:
             raise ValueError("No handler for message type %s" % message["type"])
 
-    def send(self, message):
+    def send(self, message: MessageType):
         """
         Overrideable/callable-by-subclasses send method.
         """

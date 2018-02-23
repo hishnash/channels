@@ -1,6 +1,8 @@
 from __future__ import unicode_literals
 
 import asyncio
+from typing import Optional, Dict, Any
+
 import fnmatch
 import random
 import re
@@ -21,8 +23,8 @@ class ChannelLayerManager:
     Takes a settings dictionary of backends and initialises them on request.
     """
 
-    def __init__(self):
-        self.backends = {}
+    def __init__(self) -> None:
+        self.backends = {}  # type: Dict[str, 'BaseChannelLayer']
 
     @property
     def configs(self):
@@ -46,7 +48,7 @@ class ChannelLayerManager:
             raise InvalidChannelLayerError("No TEST_CONFIG specified for %s" % name)
         return self._make_backend(name, config)
 
-    def _make_backend(self, name, config):
+    def _make_backend(self, name: str, config: Dict[str, Any]) -> 'BaseChannelLayer':
         # Check for old format config
         if "ROUTING" in self.configs[name]:
             raise InvalidChannelLayerError("ROUTING key found for %s - this is no longer needed in Channels 2." % name)
@@ -87,12 +89,12 @@ class BaseChannelLayer:
     common functionality.
     """
 
-    def __init__(self, expiry=60, capacity=100, channel_capacity=None):
+    def __init__(self, expiry=60, capacity=100, channel_capacity: Optional[dict]=None, **kwargs) -> None:
         self.expiry = expiry
         self.capacity = capacity
         self.channel_capacity = channel_capacity or {}
 
-    def compile_capacities(self, channel_capacity):
+    def compile_capacities(self, channel_capacity: Dict):
         """
         Takes an input channel_capacity dict and returns the compiled list
         of regexes that get_capacity will look for as self.channel_capacity
@@ -180,10 +182,10 @@ class InMemoryChannelLayer(BaseChannelLayer):
     """
     local_poll_interval = 0.01
 
-    def __init__(self, expiry=60, group_expiry=86400, capacity=100, channel_capacity=None, **kwargs):
+    def __init__(self, expiry=60, group_expiry=86400, capacity=100, channel_capacity=None, **kwargs) -> None:
         super().__init__(expiry=expiry, capacity=capacity, channel_capacity=channel_capacity, **kwargs)
-        self.channels = {}
-        self.groups = {}
+        self.channels = {}  # type: Dict[str, asyncio.Queue]
+        self.groups = {}  # type: Dict[str, Dict[str, Optional[int]]]
         self.group_expiry = group_expiry
 
     ### Channel layer API ###
@@ -231,7 +233,7 @@ class InMemoryChannelLayer(BaseChannelLayer):
 
         return message
 
-    async def new_channel(self, prefix="specific."):
+    async def new_channel(self, prefix="specific.") -> str:
         """
         Returns a new channel name that can be used by something in our
         process as a specific channel.

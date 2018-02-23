@@ -1,9 +1,11 @@
 import datetime
 import time
+from typing import Type
+
 from importlib import import_module
 
 from django.conf import settings
-from django.contrib.sessions.backends.base import UpdateError
+from django.contrib.sessions.backends.base import UpdateError, SessionBase
 from django.core.exceptions import SuspiciousOperation
 from django.http import parse_cookie
 from django.http.cookie import SimpleCookie
@@ -132,7 +134,8 @@ class SessionMiddleware:
     def __init__(self, inner):
         self.inner = inner
         self.cookie_name = settings.SESSION_COOKIE_NAME
-        self.session_store = import_module(settings.SESSION_ENGINE).SessionStore
+        session_store = import_module(settings.SESSION_ENGINE).SessionStore  # type: ignore
+        self.session_store = session_store  # type: Type[SessionBase]
 
     def __call__(self, scope):
         return SessionMiddlewareInstance(scope, self)
