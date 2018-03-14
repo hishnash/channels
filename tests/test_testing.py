@@ -1,3 +1,6 @@
+from concurrent.futures import TimeoutError
+from urllib.parse import unquote
+
 import pytest
 
 from channels.consumer import AsyncConsumer
@@ -48,6 +51,15 @@ class SimpleWebsocketApp(WebsocketConsumer):
         self.send(text_data=text_data, bytes_data=bytes_data)
 
 
+class ErrorWebsocketApp(WebsocketConsumer):
+    """
+    Barebones WebSocket ASGI app for error testing.
+    """
+
+    def receive(self, text_data=None, bytes_data=None):
+        pass
+
+
 @pytest.mark.asyncio
 async def test_websocket_communicator():
     """
@@ -71,4 +83,56 @@ async def test_websocket_communicator():
     response = await communicator.receive_json_from()
     assert response == {"hello": "world"}
     # Close out
+    await communicator.disconnect()
+
+
+@pytest.mark.asyncio
+async def test_timeout_disconnect():
+    """
+    Tests that disconnect() still works after a timeout.
+    """
+    communicator = WebsocketCommunicator(ErrorWebsocketApp, "/testws/")
+    # Test connection
+    connected, subprotocol = await communicator.connect()
+    assert connected
+    assert subprotocol is None
+    # Test sending text (will error internally)
+    await communicator.send_to(text_data="hello")
+    with pytest.raises(TimeoutError):
+        await communicator.receive_from()
+    # Close out
+    await communicator.disconnect()
+
+
+class ConnectionScopeValidator(WebsocketConsumer):
+    """
+    Tests ASGI specification for the connection scope.
+    """
+    def connect(self):
+        assert self.scope["type"] == "websocket"
+        # check if path is a unicode string
+        assert isinstance(self.scope["path"], str)
+        # check if path has percent escapes decoded
+        assert self.scope["path"] == unquote(self.scope["path"])
+        # check if query_string is a bytes sequence
+        assert isinstance(self.scope["query_string"], bytes)
+        self.accept()
+
+
+paths = [
+    "user:pass@example.com:8080/p/a/t/h?query=string#hash",
+    "wss://user:pass@example.com:8080/p/a/t/h?query=string#hash",
+    "ws://www.example.com/%E9%A6%96%E9%A1%B5/index.php?foo=%E9%A6%96%E9%A1%B5&spam=eggs",
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("path", paths)
+async def test_connection_scope(path):
+    """
+    Tests ASGI specification for the the connection scope.
+    """
+    communicator = WebsocketCommunicator(ConnectionScopeValidator, path)
+    connected, _ = await communicator.connect()
+    assert connected
     await communicator.disconnect()

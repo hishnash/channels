@@ -19,6 +19,8 @@ Channels - like routing, session handling and authentication - with any
 ASGI app, but they're generally the best way to write your application code.
 
 
+.. _sync_to_async:
+
 Basic Layout
 ------------
 
@@ -80,7 +82,7 @@ must be coroutines, and ``self.send`` is a coroutine::
         async def websocket_receive(self, event):
             await self.send({
                 "type": "websocket.send",
-                "text": text,
+                "text": event["text"],
             })
 
 When should you use ``AsyncConsumer`` and when should you use ``SyncConsumer``?
@@ -138,6 +140,8 @@ send messages between each other either one-to-one or via a broadcast system
 called groups. You can read more in :doc:`/topics/channel_layers`.
 
 
+.. _scope:
+
 Scope
 -----
 
@@ -181,6 +185,8 @@ WebsocketConsumer
 Available as ``channels.generic.websocket.WebsocketConsumer``, this
 wraps the verbose plain-ASGI message sending and receiving into handling that
 just deals with text and binary frames::
+
+    from channels.generic.websocket import WebsocketConsumer
 
     class MyConsumer(WebsocketConsumer):
         groups = ["broadcast"]
@@ -227,6 +233,8 @@ AsyncWebsocketConsumer
 Available as ``channels.generic.websocket.AsyncWebsocketConsumer``, this has
 the exact same methods and signature as ``WebsocketConsumer`` but everything
 is async, and the functions you need to write have to be as well::
+
+    from channels.generic.websocket import AsyncWebsocketConsumer
 
     class MyConsumer(AsyncWebsocketConsumer):
         groups = ["broadcast"]
@@ -277,3 +285,64 @@ AsyncJsonWebsocketConsumer
 An async version of ``JsonWebsocketConsumer``, available as
 ``channels.generic.websocket.AsyncJsonWebsocketConsumer``. Note that even
 ``encode_json`` and ``decode_json`` are async functions.
+
+
+AsyncHttpConsumer
+~~~~~~~~~~~~~~~~~
+
+Available as ``channels.generic.http.AsyncHttpConsumer``, this offers basic
+primitives to implement a HTTP endpoint::
+
+    from channels.generic.http import AsyncHttpConsumer
+
+    class BasicHttpConsumer(AsyncHttpConsumer):
+        async def handle(self, body):
+            await asyncio.sleep(10)
+            await self.send_response(200, b"Your response bytes", headers=[
+                ("Content-Type", "text/plain"),
+            ])
+
+You are expected to implement your own ``self.handle`` method. The
+method receives the whole request body as a single bytestring.  Headers
+may either be passed as a list of tuples or as a dictionary. The
+response body content is expected to be a bytestring.
+
+If you need more control over the response, e.g. for implementing long
+polling, use the lower level ``self.send_headers`` and ``self.send_body``
+methods instead. This example already mentions channel layers which will
+be explained in detail later::
+
+    import json
+    from channels.generic.http import AsyncHttpConsumer
+
+    class LongPollConsumer(AsyncHttpConsumer):
+        async def handle(self, body):
+            await self.send_headers(headers=[
+                ("Content-Type", "application/json"),
+            ])
+            # Headers are only sent after the first body event.
+            # Set "more_body" to tell the interface server to not
+            # finish the response yet:
+            await self.send_body(b"", more_body=True)
+
+        async def chat_message(self, event):
+            # Send JSON and finish the response:
+            await self.send_body(json.dumps(event).encode("utf-8"))
+
+Of course you can also use those primitives to implement a HTTP endpoint for
+`Server-sent events <https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events>`_::
+
+    from datetime import datetime
+    from channels.generic.http import AsyncHttpConsumer
+
+    class ServerSentEventsConsumer(AsyncHttpConsumer):
+        async def handle(self, body):
+            await self.send_headers(headers=[
+                ("Cache-Control", "no-cache"),
+                ("Content-Type", "text/event-stream"),
+                ("Transfer-Encoding", "chunked"),
+            ])
+            while True:
+                payload = "data: %s\n\n" % datetime.now().isoformat()
+                await self.send_body(payload.encode("utf-8"), more_body=True)
+                await asyncio.sleep(1)
