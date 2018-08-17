@@ -9,6 +9,8 @@ These projects from the community are developed on top of Channels:
 * cq_, a simple distributed task system.
 * Debugpannel_, a django Debug Toolbar panel for channels.
 * EventStream_, a library to push data using Server-Sent Events (SSE) protocol.
+* DjangoChannelsRestFramework_, a framework that providers DRF like consuemrs for channels.
+* HyperMediaChannels_, a Hyper Media style framework for binding up consumers in channels.
 
 If you'd like to add your project, please submit a PR with a link and brief description.
 
@@ -18,3 +20,5 @@ If you'd like to add your project, please submit a PR with a link and brief desc
 .. _cq: https://github.com/furious-luke/django-cq
 .. _Debugpannel: https://github.com/Krukov/django-channels-panel
 .. _EventStream: https://github.com/fanout/django-eventstream
+.. _DjangoChannelsRestFramework: https://github.com/hishnash/djangochannelsrestframework
+.. _HyperMediaChannels: https://github.com/hishnash/hypermediachannels
